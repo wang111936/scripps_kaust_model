@@ -1,11 +1,51 @@
-#!/bin/bash
+#!/bin/sh
+set -eu
 
-echo "cleaning the current folder"
-./Allclean
+script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd -P)
+solver_dir=$(CDPATH='' cd "$script_dir/../coupledSolver" && pwd -P)
+mpi_exec=${MPIEXEC:-mpirun}
+mpi_np_flag=${MPIEXEC_NP_FLAG--np}
+mpi_ranks=${MPI_RANKS:-5}
 
-echo "copying the NUOPC--WRF code..."
-cp ../coupledSolver/esmf_application .
-cp ../coupledSolver/namelist.rc .
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 2
+}
 
-echo "running the NUOPC--WRF code..."
-mpirun -np 5 ./esmf_application
+case "$mpi_ranks" in
+  ''|*[!0-9]*)
+    die "MPI_RANKS must be a positive integer; received: $mpi_ranks"
+    ;;
+esac
+
+if ! test "$mpi_ranks" -gt 0 2>/dev/null; then
+  die "MPI_RANKS must be a positive integer; received: $mpi_ranks"
+fi
+
+test -n "$mpi_np_flag" || die 'MPIEXEC_NP_FLAG must not be empty.'
+
+case "$mpi_exec" in
+  */*)
+    test -x "$mpi_exec" || die "MPI launcher is not executable: $mpi_exec"
+    ;;
+  *)
+    command -v "$mpi_exec" >/dev/null 2>&1 || \
+      die "MPI launcher was not found: $mpi_exec"
+    ;;
+esac
+
+test -x "$solver_dir/esmf_application" || \
+  die "Built application not found or not executable: $solver_dir/esmf_application"
+test -f "$solver_dir/namelist.rc" || \
+  die "Runtime configuration not found: $solver_dir/namelist.rc"
+
+printf '%s\n' 'Cleaning recognized L1.C2 run products...'
+"$script_dir/Allclean"
+
+printf '%s\n' 'Staging the application and runtime configuration...'
+cp "$solver_dir/esmf_application" "$script_dir/esmf_application"
+cp "$solver_dir/namelist.rc" "$script_dir/namelist.rc"
+
+printf 'Launching L1.C2 with %s MPI ranks...\n' "$mpi_ranks"
+cd "$script_dir"
+"$mpi_exec" "$mpi_np_flag" "$mpi_ranks" ./esmf_application

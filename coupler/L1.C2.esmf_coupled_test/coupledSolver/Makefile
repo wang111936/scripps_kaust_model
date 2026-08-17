@@ -18,11 +18,18 @@
 ## flexible and non-portable.                                                 ##
 ################################################################################
 
+ifneq ($(strip $(filter-out clean distclean,$(MAKECMDGOALS))),)
+need_esmf := yes
+else ifeq ($(strip $(MAKECMDGOALS)),)
+need_esmf := yes
+endif
+
+ifdef need_esmf
 ifndef ESMFMKFILE
 $(error ESMFMKFILE was not set.)
 endif
-
 include $(ESMFMKFILE)
+endif
 
 ################################################################################
 ################################################################################

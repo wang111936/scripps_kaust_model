@@ -5,13 +5,33 @@ implementation of ESMF driver. In this test, a prototype ESMF driver will run,
 but the driver is not driving "real" ocean/atmosphere models.
 
 
-To install and run this case::
+The scripts resolve their own locations, so they can be launched from any
+working directory. To build from a clean solver directory and run with five
+MPI ranks::
 
-  ./install.sh
+  export ESMFMKFILE=/path/to/esmf.mk
+  ./install.sh -j8
+
+Build and run can also be invoked separately::
+
+  ./coupledSolver/Allmake.sh -j8
+  MPI_RANKS=5 ./run/Allrun
+
+`MPIEXEC` selects the launcher (default `mpirun`) and `MPIEXEC_NP_FLAG` selects
+its process-count option (default `-np`). `MPI_RANKS` must be a positive
+integer. A missing executable, configuration, launcher, or invalid rank count
+causes an immediate non-zero exit.
 
 To clean this case::
 
+  ./clean.sh --dry-run
   ./clean.sh
+
+`Allclean` only removes the staged executable, staged configuration, ESMF log
+files, and diagnostic NetCDF names produced by this L1.C2 case. It never uses
+recursive deletion or broad `*.*`, `wrf*`, `ncep*`, or `log*` patterns.
+`clean.sh` also removes recognized solver build products and does not require
+`ESMFMKFILE`.
 
 Folders:
 
@@ -23,7 +43,7 @@ WARNING!!!WARNING!!!
 ####################
 ESMF must be installed to run this case. Before building, set `ESMFMKFILE` to
 the `esmf.mk` file from the ESMF installation. The variable may also be passed
-on the make command line. For example::
+directly to make. For example::
 
   export ESMFMKFILE=/path/to/esmf.mk
   cd coupledSolver

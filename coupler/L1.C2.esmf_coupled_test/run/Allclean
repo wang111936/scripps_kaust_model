@@ -1,16 +1,70 @@
-#!/bin/bash
+#!/bin/sh
+set -eu
 
-rm -rf *.*
-rm -rf *data prepare_run esmf_application *list
-rm -rf log
-rm -rf mnc_test_*
-rm -rf *DATA
-rm -rf wrf*
-rm -rf sstin*
-rm -rf tr*
-rm -rf CAMtr_volume_mixing_ratio
-rm -rf esmf_application
-rm -rf log*
-rm -rf ncep*
-rm -rf MASK
-rm -rf launch
+script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd -P)
+dry_run=0
+
+usage() {
+  printf 'Usage: %s [--dry-run]\n' "$0"
+}
+
+case "${1-}" in
+  '')
+    ;;
+  --dry-run)
+    dry_run=1
+    ;;
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  *)
+    usage >&2
+    printf 'ERROR: unknown option: %s\n' "$1" >&2
+    exit 2
+    ;;
+esac
+
+test "$#" -le 1 || {
+  usage >&2
+  printf '%s\n' 'ERROR: too many arguments.' >&2
+  exit 2
+}
+
+remove_generated_file() {
+  generated_file=$1
+  test -e "$generated_file" || test -L "$generated_file" || return 0
+
+  case "$generated_file" in
+    "$script_dir"/*)
+      ;;
+    *)
+      printf 'ERROR: refusing to remove path outside run directory: %s\n' \
+        "$generated_file" >&2
+      exit 2
+      ;;
+  esac
+
+  if test "$dry_run" -eq 1; then
+    printf 'would remove: %s\n' "$generated_file"
+  else
+    rm -f "$generated_file"
+    printf 'removed: %s\n' "$generated_file"
+  fi
+}
+
+for generated_file in \
+  "$script_dir/esmf_application" \
+  "$script_dir/namelist.rc" \
+  "$script_dir"/PET*.ESMF_LogFile \
+  "$script_dir/atm_xa.nc" \
+  "$script_dir/atm_ya.nc" \
+  "$script_dir"/ocn_xa[0-9][0-9][0-9].nc \
+  "$script_dir"/ocn_ya[0-9][0-9][0-9].nc \
+  "$script_dir/rsnsATM.nc" \
+  "$script_dir"/sstATM[0-9][0-9].nc \
+  "$script_dir/rsnsOCN.nc" \
+  "$script_dir"/pmslOCN[0-9][0-9].nc
+do
+  remove_generated_file "$generated_file"
+done
