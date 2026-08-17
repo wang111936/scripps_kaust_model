@@ -1,11 +1,10 @@
-#!/bin/csh -f
+#!/bin/sh
+set -eu
 
-# build the test coupler
-cd coupledSolver
-# set the path of ESMF installation
-./Allmake.sh
-cd ..
+script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd -P)
 
-# run the test coupler
-cd run
-./Allrun
+printf '%s\n' 'Building the L1.C2 ESMF application...'
+"$script_dir/coupledSolver/Allmake.sh" "$@"
+
+printf '%s\n' 'Running the L1.C2 ESMF application...'
+"$script_dir/run/Allrun"

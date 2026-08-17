@@ -19,6 +19,7 @@ module mod_config
 !
   use ESMF
   use NUOPC
+  use, intrinsic :: iso_fortran_env, only : error_unit
 !
   use mod_types
 !
@@ -39,15 +40,11 @@ module mod_config
 !     Local variable declarations 
 !-----------------------------------------------------------------------
 !
-  integer :: time(6)
-  integer :: i, j, k, p, np, dumm
-  integer :: localPet, petCount, lineCount, columnCount
-  integer, allocatable :: petList(:)
+  integer :: localPet, petCount
   logical :: file_exists
-  character(100) :: fmt_123, str
+  character(2*ESMF_MAXSTR) :: error_message
 !
   type(ESMF_Config) :: cf
-  type(ESMF_CalKind_Flag) :: cflag
 !
   rc = ESMF_SUCCESS
 !
@@ -65,15 +62,28 @@ module mod_config
 !
   inquire(file=trim(config_fname), exist=file_exists)
 !
-  if (file_exists) then
+  if (.not. file_exists) then
+    error_message = 'Required configuration file not found: ' //         &
+                    trim(config_fname)
+    if (localPet == 0) write(error_unit, '(a)')                         &
+      'ERROR: ' // trim(error_message)
+    call ESMF_LogSetError(rcToCheck=ESMF_RC_FILE_OPEN,                 &
+                          msg=trim(error_message),                      &
+                          line=__LINE__, file=FILENAME, rcToReturn=rc)
+    return
+  end if
 !
   cf = ESMF_ConfigCreate(rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
   line=__LINE__, file=FILENAME)) return
 !
   call ESMF_ConfigLoadFile(cf, trim(config_fname), rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-  line=__LINE__, file=FILENAME)) return
+  if (rc /= ESMF_SUCCESS) then
+    if (localPet == 0) write(error_unit, '(a)')                         &
+      'ERROR: Unable to load configuration file: ' // trim(config_fname)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+        line=__LINE__, file=FILENAME)) return
+  end if
 !
 !-----------------------------------------------------------------------
 !     Set debug level 
@@ -81,10 +91,36 @@ module mod_config
 !
   call ESMF_ConfigGetAttribute(cf, debugLevel,                      &
                            label='DebugLevel:', rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
-  line=__LINE__, file=FILENAME)) return
-!
+  if (rc /= ESMF_SUCCESS) then
+    if (localPet == 0) write(error_unit, '(a)')                         &
+      'ERROR: Required integer setting DebugLevel: is missing or invalid in ' // &
+      trim(config_fname)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
+        line=__LINE__, file=FILENAME)) return
   end if
+
+  if (debugLevel < 0) then
+    error_message = 'DebugLevel must be a non-negative integer.'
+    if (localPet == 0) write(error_unit, '(a)')                         &
+      'ERROR: ' // trim(error_message)
+    call ESMF_LogSetError(rcToCheck=ESMF_RC_ARG_BAD,                   &
+                          msg=trim(error_message),                      &
+                          line=__LINE__, file=FILENAME, rcToReturn=rc)
+    return
+  end if
+
+#ifndef ESMF_PIO
+  if (debugLevel >= 1) then
+    error_message = 'DebugLevel >= 1 requires an ESMF build with PIO support; ' // &
+                    'set DebugLevel: 0 or rebuild ESMF with PIO.'
+    if (localPet == 0) write(error_unit, '(a)')                         &
+      'ERROR: ' // trim(error_message)
+    call ESMF_LogSetError(rcToCheck=ESMF_RC_ARG_BAD,                   &
+                          msg=trim(error_message),                      &
+                          line=__LINE__, file=FILENAME, rcToReturn=rc)
+    return
+  end if
+#endif
 !
 !-----------------------------------------------------------------------
 !     Added fields to connect

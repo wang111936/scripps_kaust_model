@@ -1,5 +1,7 @@
 #!/bin/sh
+set -eu
 
-make distclean
+script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd -P)
 
-make 
+make -C "$script_dir" "$@" distclean
+make -C "$script_dir" "$@"

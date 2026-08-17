@@ -18,11 +18,18 @@
 ## flexible and non-portable.                                                 ##
 ################################################################################
 
-ifneq ($(origin ESMFMKFILE), environment)
-$(error Environment variable ESMFMKFILE was not set.)
+ifneq ($(strip $(filter-out clean distclean,$(MAKECMDGOALS))),)
+need_esmf := yes
+else ifeq ($(strip $(MAKECMDGOALS)),)
+need_esmf := yes
 endif
 
+ifdef need_esmf
+ifndef ESMFMKFILE
+$(error ESMFMKFILE was not set.)
+endif
 include $(ESMFMKFILE)
+endif
 
 ################################################################################
 ################################################################################
@@ -30,10 +37,10 @@ include $(ESMFMKFILE)
 .SUFFIXES: .f90 .F90 .c .C
 
 %.o : %.f90
-	$(ESMF_F90COMPILER)  -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $< -I${PWD} -L${PWD} 
+	$(ESMF_F90COMPILER)  -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $< -I$(CURDIR) -L$(CURDIR)
 
 %.o : %.F90
-	$(ESMF_F90COMPILER)  -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) $< -I${PWD} -L${PWD}
+	$(ESMF_F90COMPILER)  -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) $< -I$(CURDIR) -L$(CURDIR)
 
 % : %.c
 	$(ESMF_CXXCOMPILER)  -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
@@ -44,11 +51,12 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-esmf_application: mod_config.o mod_types.o mod_esmf_ocn.o mod_esmf_atm.o mod_esmf_cpl.o mod_esmf_esm.o mitgcm_wrf.o 
-	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -L${PWD} -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
+esmf_application: mod_types.o mod_config.o mod_esmf_ocn.o mod_esmf_atm.o mod_esmf_cpl.o mod_esmf_esm.o mitgcm_wrf.o
+	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -L$(CURDIR) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
-mod_esmf_esm.o: mod_esmf_ocn.o mod_esmf_atm.o mod_types.o 
+mitgcm_wrf.o: mod_esmf_esm.o mod_config.o mod_types.o
+mod_esmf_esm.o: mod_esmf_ocn.o mod_esmf_atm.o mod_esmf_cpl.o mod_types.o
 mod_esmf_cpl.o: 
 mod_esmf_ocn.o: mod_types.o
 mod_esmf_atm.o: mod_types.o
