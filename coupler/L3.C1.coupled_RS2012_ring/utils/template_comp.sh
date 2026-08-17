@@ -2,7 +2,7 @@
 #
 # Generate component context switching routines
 #
-if ( $# == 1 ) then
+if ( $#argv == 1 ) then
  set comp_nam = ( $1 )
 else
  set comp_nam = ( ocn )
@@ -84,3 +84,8 @@ void _comp_${comp_nam}_pop_context__(int *cId)
 
 
 EOFA
+
+if ( ! -f component_${comp_nam}_context.c ) then
+ echo "ERROR: failed to generate component_${comp_nam}_context.c"
+ exit 1
+endif

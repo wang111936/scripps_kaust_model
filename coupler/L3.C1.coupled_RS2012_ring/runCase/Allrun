@@ -1,18 +1,54 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-ln -sf ../caseInput/* .
+set -Eeuo pipefail
 
-cp $WRF_DIR/main/wrf.exe .
-cp ../runCase.init/wrfbdy_d01 . 
-cp ../runCase.init/wrfinput_d01 .
-cp ../runCase.init/wrflowinp_d01 .
+run_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+cd "$run_dir"
+shopt -s nullglob
+
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+[[ -n ${WRF_DIR:-} ]] || die "required environment variable WRF_DIR is not set"
+[[ -n ${ESMF_LIB:-} ]] || die "required environment variable ESMF_LIB is not set"
+WRF_DIR=${WRF_DIR%/}
+[[ -x $WRF_DIR/main/wrf.exe ]] || die "WRF wrf.exe is missing or not executable: $WRF_DIR/main/wrf.exe"
+[[ -d $ESMF_LIB ]] || die "ESMF library directory does not exist: $ESMF_LIB"
+
+mpi_exec=${MPIEXEC:-mpirun}
+mpi_ranks=${SKRIPS_MPI_RANKS:-4}
+command -v "$mpi_exec" >/dev/null 2>&1 || die "MPI launcher is not available: $mpi_exec"
+[[ $mpi_ranks =~ ^[1-9][0-9]*$ ]] || die "SKRIPS_MPI_RANKS must be a positive integer, got '$mpi_ranks'"
+
+case_inputs=("$run_dir/../caseInput"/*)
+((${#case_inputs[@]} > 0)) || die "caseInput is missing or empty"
+ln -sf -- "${case_inputs[@]}" .
+
+cp -- "$WRF_DIR/main/wrf.exe" .
+for input_file in wrfbdy_d01 wrfinput_d01 wrflowinp_d01; do
+  [[ -s $run_dir/../runCase.init/$input_file ]] || die "required initialization output is missing: ../runCase.init/$input_file"
+  cp -- "$run_dir/../runCase.init/$input_file" .
+done
 # python updateLowinp.py
 # 
 # cp namelist.input.set namelist.input
 # mpirun -np 4 ./wrf.exe
 # python updateHFlux.py
 # 
-cp namelist.input.run namelist.input
-ln -sf ../coupledCode/esmf_application .
+[[ -f namelist.input.run ]] || die "namelist.input.run is missing"
+[[ -x $run_dir/../coupledCode/esmf_application ]] || die "coupled executable is missing: ../coupledCode/esmf_application"
+cp -- namelist.input.run namelist.input
+ln -sf -- ../coupledCode/esmf_application .
 # echo "running coupled MITgcm--WRF simulation.."
-mpirun -np 4 ./esmf_application &> log.esmf 
+export LD_LIBRARY_PATH="$ESMF_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+if "$mpi_exec" -np "$mpi_ranks" ./esmf_application >log.esmf 2>&1; then
+  printf 'Coupled run succeeded with %s MPI ranks. Log: %s/log.esmf\n' "$mpi_ranks" "$run_dir"
+else
+  status=$?
+  printf 'ERROR: coupled run failed with exit %d; last log lines follow.\n' "$status" >&2
+  tail -n 40 log.esmf >&2 || true
+  exit "$status"
+fi
