@@ -68,7 +68,7 @@ module mod_types
   character(ESMF_MAXSTR) :: atmExportField(1)=(/'pmsl'/)
   character(ESMF_MAXSTR) :: atmImportField(1)=(/'sst'/)
 !
-  integer :: debugLevel = 1
+  integer :: debugLevel = 0
 
   type(ESM_Conn), allocatable, target :: connectors(:)
 !

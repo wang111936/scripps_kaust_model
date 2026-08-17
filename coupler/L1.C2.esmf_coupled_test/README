@@ -21,4 +21,16 @@ Folders:
 ####################
 WARNING!!!WARNING!!!
 ####################
-ESMF must be installed to run this case.
+ESMF must be installed to run this case. Before building, set `ESMFMKFILE` to
+the `esmf.mk` file from the ESMF installation. The variable may also be passed
+on the make command line. For example::
+
+  export ESMFMKFILE=/path/to/esmf.mk
+  cd coupledSolver
+  make -j
+
+The runtime configuration file `coupledSolver/namelist.rc` is required and
+must contain a non-negative integer `DebugLevel:` setting. `DebugLevel: 0` is
+the portable control-flow test used by default. Values greater than or equal
+to 1 enable diagnostic array output and require an ESMF build with PIO support;
+the application reports this requirement during startup if PIO is unavailable.
