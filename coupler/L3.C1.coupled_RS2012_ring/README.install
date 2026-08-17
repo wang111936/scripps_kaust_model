@@ -79,6 +79,10 @@ by default. Override the launcher or rank count when needed:
   export MPIEXEC=mpirun
   export SKRIPS_MPI_RANKS=4
 
+Both runners require WRF_DIR and ESMF_LIB. They validate the ESMF library
+directory and prepend it to LD_LIBRARY_PATH before launching WRF or the coupled
+application, so a fresh shell does not need a separately exported loader path.
+
 runCase/Allrun writes the coupled standard output and error stream to log.esmf
 and propagates the MPI exit code. The verified one-hour case reaches MITgcm
 checkpoint 60 and WRF model time 2012-06-01_01:00:00 before finalization.
