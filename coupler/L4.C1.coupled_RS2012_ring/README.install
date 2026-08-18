@@ -1,71 +1,68 @@
-This is the debug case for coupled ocean-wave-atmosphere simulations
+L4.C1 ocean-wave-atmosphere coupled build
+==========================================
 
-To download the entire test case, use:
-git clone https://github.com/iurnus/L4.C1.coupled_RS2012.git
-mv L4.C1.coupled_RS2012/* .
+This case builds the MITgcm component library and links it with the SKRIPS
+ESMF coupler, WRF, and WAVEWATCH III (WW3). Building the executable and
+running the Red Sea example are separate gates: the external runtime data are
+not bundled completely in this source directory.
 
-To generate the case generator, use:
-wget ftp://sioftp.ucsd.edu/CW3E_DataShare/RSun_SKRIPS/share/generate_rs_wave.zip
+Build prerequisites
+-------------------
 
--------------------------------------------
-MITgcm-WRF coupled simulation test: Red Sea
+Provide compatible, already-built installations of:
 
-This folder contains an MITgcm-WRF coupled test case. The coupled simulation is
-driven by ESMF. The case aims to test the implementation of the coupled code.
-In this test, the ESMF driver drives both MITgcm and WRF. Both MITgcm and WRF
-are divided into "init", "run", "finalize" parts. This coupled code drives the
-realistic simulations in the Red Sea region.
+* ESMF and its ESMFMKFILE;
+* WRF 4.7.1 with the SKRIPS ESMF overlays;
+* WW3 6.07.1 with the SKRIPS WW3 overlays and all objects in model/obj;
+* MITgcm checkpoint68r;
+* MPI and NetCDF C/Fortran development files; and
+* the L3.C1 case in this repository, which supplies common MITgcm sources and
+  build utilities.
 
-The WRF bulf formula is used in this case.
-This should be compiled using PGI compiler (run it on ring).
+The installer checks the required environment variables and key generated
+artifacts before it creates any build directories. At minimum, configure:
 
-simulation:
-  Red Sea region
+    export SKRIPS_DIR=/path/to/skrips
+    export L3_CASE_DIR=$SKRIPS_DIR/coupler/L3.C1.coupled_RS2012_ring
+    export WRF_DIR=/path/to/wrf-4.7.1-skrips-build
+    export WW3_DIR=/path/to/ww3-6.07.1-skrips-build
+    export MITGCM_DIR=/path/to/MITgcm-checkpoint68r
+    export ESMF_DIR=/path/to/esmf
+    export ESMFMKFILE=/path/to/esmf.mk
 
-Notes:
-To install and run this case::
+Also set ESMF_LIB, ESMF_MOD, ESMF_OS, ESMF_COMPILER, SKRIPS_MPI_INC,
+SKRIPS_MPI_LIB, SKRIPS_NETCDF_INCLUDE, and SKRIPS_NETCDF_LIB consistently with
+those installations.
 
-./install.sh
-cd runCase.init
-./Allrun
-cd runCase
-./Allrun
+Build
+-----
 
-To clean this case::
+For an interactive confirmation:
 
-./clean.sh
+    ./install.sh
 
-How to check if the code is installed?
+For an automated build after reviewing the exported paths:
 
-MITGCM executable is: build/mitgcmuv
-MITGCM library is: build/mmout/libmitgcm_org_ocn.a
-MITGCM run time library is: build/mmout/libmitgcmrtl.a
-MITGCM mod file is: build/mitgcm_org_ocn.mod
-The coupled MITGCM-ESMF solver is: coupledCode/esmf_application
+    ./install.sh --yes
 
-###############
-DEBUGGING CASES
-###############
-MUST run the coupled case first:
+The installer deliberately refuses to reuse existing build/ or code/
+directories. Use a fresh case copy for a clean rebuild. A successful build
+produces:
 
-./allrun.sh
+    build/mitgcmuv
+    build/mmout/mitgcm_org_ocn.mod
+    build/mmout/libmitgcm_org_ocn.a
+    build/mmout/libmitgcmrtl.a
+    coupledCode/esmf_application
 
-runMITtest: Test if the MITgcm flux is added correctly. (To install stand-alone MITgcm code, run ./install_mit.sh)
-runWRFtest: Test if the WRF flux is added correctly
-latexSummary: Generate the report automatically.
+Runtime data gate
+-----------------
 
-####################
-WARNING!!!WARNING!!!
-####################
-The MITgcm path is defined as '${HOME}/scripps_kaust_model_github/MITgcm_c67m' in install.sh
-The MPI_HOME path is defined as '/project_shared/Libraries/openmpi-2.1.1_pgi_fortran_17.5-0/include' in install.sh
+The Red Sea runtime case is maintained separately at:
 
-The ESMF should be installed to run this case. The variable ESMFMKFILE should
-be defined:
+    https://github.com/iurnus/L4.C1.coupled_RS2012
 
-  export ESMFMKFILE=$ESMF_DIR/lib/libg/Linux.pgi.64.openmpi.default/esmf.mk
-
-where ESMF_DIR should be the location that ESMF is installed.
-
-Make sure MATLAB is installed.
-Make sure NCL is installed.
+Clone it with Git LFS enabled and verify that its LFS objects are materialized
+before attempting runCase.init and runCase. A successful compile alone does
+not assert that the external case data are complete or that a scientific
+validation has passed.

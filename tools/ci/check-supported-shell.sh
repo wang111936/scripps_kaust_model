@@ -52,6 +52,10 @@ l3_forward='coupler/L3.C1.coupled_RS2012_ring/utils/makescript_fwd.sh'
 l3_mkmod='coupler/L3.C1.coupled_RS2012_ring/utils/mkmod.sh'
 l3_template='coupler/L3.C1.coupled_RS2012_ring/utils/template_comp.sh'
 
+l4_install='coupler/L4.C1.coupled_RS2012_ring/install.sh'
+l4_make='coupler/L4.C1.coupled_RS2012_ring/coupledCode/Allmake.sh'
+l4_mkmod='coupler/L4.C1.coupled_RS2012_ring/utils/mkmod.sh'
+
 for required_command in shellcheck sh bash tcsh
 do
     require_command "$required_command"
@@ -70,7 +74,10 @@ require_files \
     "$l3_run" \
     "$l3_forward" \
     "$l3_mkmod" \
-    "$l3_template"
+    "$l3_template" \
+    "$l4_install" \
+    "$l4_make" \
+    "$l4_mkmod"
 
 printf '%s\n' 'Running ShellCheck on the supported sh/bash scripts...'
 shellcheck \
@@ -84,7 +91,9 @@ shellcheck \
     "$repo_root/$l3_make" \
     "$repo_root/$l3_init" \
     "$repo_root/$l3_run" \
-    "$repo_root/$l3_forward"
+    "$repo_root/$l3_forward" \
+    "$repo_root/$l4_install" \
+    "$repo_root/$l4_make"
 
 run_syntax_checks sh \
     "$quality_script" \
@@ -94,15 +103,18 @@ run_syntax_checks sh \
     "$l1_run" \
     "$l1_run_clean" \
     "$l3_make" \
-    "$l3_forward"
+    "$l3_forward" \
+    "$l4_make"
 
 run_syntax_checks bash \
     "$l3_install" \
     "$l3_init" \
-    "$l3_run"
+    "$l3_run" \
+    "$l4_install"
 
 run_syntax_checks tcsh \
     "$l3_mkmod" \
-    "$l3_template"
+    "$l3_template" \
+    "$l4_mkmod"
 
 printf '%s\n' 'PASS: supported shell script quality checks completed.'
