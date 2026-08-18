@@ -18,6 +18,23 @@
 #
 # 
 
+if (! $?ESMF_OS) then
+  echo "ERROR: required environment variable ESMF_OS is not set"
+  exit 2
+endif
+if (! $?ESMF_COMPILER) then
+  echo "ERROR: required environment variable ESMF_COMPILER is not set"
+  exit 2
+endif
+if (! $?SKRIPS_NETCDF_INCLUDE) then
+  echo "ERROR: required environment variable SKRIPS_NETCDF_INCLUDE is not set"
+  exit 2
+endif
+if (! $?SKRIPS_NETCDF_LIB) then
+  echo "ERROR: required environment variable SKRIPS_NETCDF_LIB is not set"
+  exit 2
+endif
+
 # Set compile options (need to be updated for other machines)
 if ($ESMF_OS == Unicos) then
   set comp      = ftn
@@ -27,13 +44,19 @@ else if ($ESMF_OS == Linux) then
   set comp      = mpif77
   set cccommand = mpicc
 
-  if ($ESMF_COMPILER == intel) then
+  if ($ESMF_COMPILER == intel || $ESMF_COMPILER == ifort) then
     set compopts     = (-fPIC -convert big_endian -assume byterecl -align -O2 -ip -fp-model precise -traceback -ftz)
   else if ($ESMF_COMPILER == pgi) then
     set compopts     = (-byteswapio -r8 -Mnodclchk -Mextend)
   else if ($ESMF_COMPILER == gfortran) then
     set compopts     = (-fconvert=big-endian -fimplicit-none -fallow-argument-mismatch -fallow-invalid-boz)
+  else
+    echo "ERROR: unsupported ESMF_COMPILER '$ESMF_COMPILER'"
+    exit 2
   endif
+else
+  echo "ERROR: unsupported ESMF_OS '$ESMF_OS'"
+  exit 2
 endif
 
 
@@ -52,7 +75,7 @@ set arcommand = ar
 set aropts    = "-rsc"
 
 # Set module prefix 
-if ( $# == 1 ) then
+if ( $#argv == 1 ) then
 set mpref_s = ( $1 )
 else
 set mpref_s = ( atm )
@@ -66,6 +89,10 @@ set outdir = ( mmout )
 # Get the genmake generated Makefile to create the .f files
 echo "Creating small f files"
 make small_f
+if ( $status != 0 ) then
+  echo "ERROR: make small_f failed"
+  exit 1
+endif
 
 echo "Building list of .f files"
 ls -1 *.f > flist
@@ -80,7 +107,7 @@ cp flist1 flist
 set flist = (`cat flist`)
 
 echo "Joining .f into ${mpref_s}_mod.F"
-\rm ${mpref_l}_mod.Ftmp ${mpref_l}_mod.F
+\rm -f ${mpref_l}_mod.Ftmp ${mpref_l}_mod.F
 foreach f ( $flist )
  cat $f >> ${mpref_l}_mod.Ftmp
  echo -n "."
@@ -243,50 +270,96 @@ cp f1.Ftmp ${mpref_l}_mod.Ftmp
 
 
 # Create output directory
-mkdir mmout
+mkdir -p mmout
+if ( $status != 0 ) then
+  echo "ERROR: failed to create output directory mmout"
+  exit 1
+endif
 
 # Create runtime library archive
 set mitgcmrtlo = ( )
 foreach f ( $mitgcmrtl )
  echo " " | $comp $compopts_num -c ${f}
+ if ( $status != 0 ) then
+  echo "ERROR: failed to compile runtime source ${f}"
+  exit 1
+ endif
  set mitgcmrtlo = ( $mitgcmrtlo ${f:r}.o )
 end
 ${cccommand} ${ccopts} tim.c
+if ( $status != 0 ) then
+  echo "ERROR: failed to compile tim.c"
+  exit 1
+endif
 set mitgcmrtlo = ( $mitgcmrtlo tim.o )
-rm -rf mmout/libmitgcmrtl.a
+rm -f mmout/libmitgcmrtl.a
 ${arcommand} ${aropts} mmout/libmitgcmrtl.a $mitgcmrtlo
+if ( $status != 0 ) then
+  echo "ERROR: failed to create mmout/libmitgcmrtl.a"
+  exit 1
+endif
 #ranlib mmout/libmitgcmrtl.a
 
 # Create component library archive
 mv ${mpref_l}_mod.Ftmp ${mpref_l}_mod.F
 source scommand
+if ( $status != 0 ) then
+  echo "ERROR: scommand transformation failed"
+  exit 1
+endif
 mv foo.F ${mpref_l}_mod.F
 
 sed -i "s/COMMON\/C_ocn_PTRACERS_SURFCOR_FIELDS\/ totSurfCorPTr, meanSurfCorPTr/COMMON\/C_ocn_PTRACERS_SURFCOR_FIELDS\/ totSurfCorPTr \n      COMMON\/C_ocn_PTRACERS_SURFCOR_FIELDS\/ meanSurfCorPTr/g" mitgcm_org_ocn_mod.F
 echo " " | $comp $compopts_num -c ${mpref_l}_mod.F ${complibs} ${compinc}
+if ( $status != 0 ) then
+  echo "ERROR: failed to compile ${mpref_l}_mod.F"
+  exit 1
+endif
 mv ${mpref_l}_mod.F ${mpref_l}_mod.Ftmp
 ./template_comp.sh ${mpref_s}
+if ( $status != 0 ) then
+  echo "ERROR: failed to generate component context source"
+  exit 1
+endif
 ${cccommand} ${ccopts} component_${mpref_s}_context.c
-rm -rf mmout/lib${mpref_l}.a
+if ( $status != 0 ) then
+  echo "ERROR: failed to compile component_${mpref_s}_context.c"
+  exit 1
+endif
+rm -f mmout/lib${mpref_l}.a
 ${arcommand} ${aropts} mmout/lib${mpref_l}.a ${mpref_l}_mod.o component_${mpref_s}_context.o
+if ( $status != 0 ) then
+  echo "ERROR: failed to create mmout/lib${mpref_l}.a"
+  exit 1
+endif
 #ranlib mmout/lib${mpref_l}.a
 cp ${mpref_l}.mod mmout
+if ( $status != 0 ) then
+  echo "ERROR: failed to copy ${mpref_l}.mod to mmout"
+  exit 1
+endif
 
 # Check installation
+set install_failed = 0
 if ( -f ./mmout/${mpref_l}.mod ) then
   echo Installation is successful for ./mmout/${mpref_l}.mod
 else 
   echo ERROR! Installation is NOT successful for ./mmout/${mpref_l}.mod
+  set install_failed = 1
 endif
 
 if ( -f ./mmout/lib${mpref_l}.a ) then
   echo Installation is successful for ./mmout/lib${mpref_l}.a
 else 
   echo ERROR! Installation is NOT successful for ./mmout/lib${mpref_l}.a
+  set install_failed = 1
 endif
 
 if ( -f ./mmout/libmitgcmrtl.a ) then
   echo Installation is successful for ./mmout/libmitgcmrtl.a
 else 
   echo ERROR! Installation is NOT successful for ./mmout/libmitgcmrtl.a
+  set install_failed = 1
 endif
+
+exit $install_failed

@@ -1,51 +1,96 @@
-MITgcm-WRF coupled simulation test: Red Sea
+L3.C1 MITgcm-WRF coupled simulation test: Red Sea
+==================================================
 
-This folder contains an MITgcm-WRF coupled test case. The coupled simulation is
-driven by ESMF. The case aims to test the implementation of the coupled code.
-In this test, the ESMF driver drives both MITgcm and WRF. Both MITgcm and WRF
-are divided into "init", "run", "finalize" parts. This coupled code drives the
-realistic simulations in the Red Sea region.
+This directory contains the L3.C1 Red Sea coupling test. ESMF drives MITgcm
+and WRF through their initialize, run, and finalize phases. This is a verbose
+debug and integration case; it is not a production configuration.
 
-The WRF bulf formula is used in this case.
-This should be compiled using PGI compiler (run it on ring).
+Supported build path
+--------------------
 
-simulation:
-  Red Sea region
+The maintained U-004 path is Linux with the ESMF compiler family also used for
+MITgcm. The installer recognizes gfortran, intel/ifort, and pgi option files.
+The verified reference environment uses gfortran, Open MPI, ESMF 8.9.0, WRF
+4.7.1 with the SKRIPS coupling overlay, and MITgcm checkpoint68r.
 
-Notes:
-To install and run this case::
+Use a disposable external copy of this case for each clean build. The installer
+creates build/ and code/ and intentionally refuses to reuse either directory;
+this prevents stale artifacts from being reported as a successful build.
 
-./install.sh
-cd runCase.init
-./Allrun
-cd runCase
-./Allrun
+Required environment
+--------------------
 
-To clean this case::
+Set these variables before installation:
 
-./clean.sh
+  ESMF_DIR                 ESMF installation root
+  ESMF_LIB                 ESMF library directory
+  ESMF_MOD                 ESMF module directory
+  ESMFMKFILE               absolute path to esmf.mk
+  ESMF_OS                  Linux
+  ESMF_COMPILER            gfortran, intel/ifort, or pgi
+  WRF_DIR                  coupled WRF build directory
+  MITGCM_DIR               writable MITgcm source copy
+  SKRIPS_MPI_INC           MPI Fortran include/module directory
+  SKRIPS_MPI_LIB           MPI library directory
+  SKRIPS_NETCDF_INCLUDE    compiler include flags, for example -I/usr/include
+  SKRIPS_NETCDF_LIB        linker search flags, for example -L/usr/lib/x86_64-linux-gnu
 
-How to check if the code is installed?
+The installer validates the variables, required files, and build commands
+before creating any build directory. Run ./install.sh --help for its interface.
 
-MITGCM executable is: build/mitgcmuv
-MITGCM library is: build/mmout/libmitgcm_org_ocn.a
-MITGCM run time library is: build/mmout/libmitgcmrtl.a
-MITGCM mod file is: build/mitgcm_org_ocn.mod
-The coupled MITGCM-ESMF solver is: coupledCode/esmf_application
+Install
+-------
 
-###############
-DEBUGGING CASES
-###############
-MUST run the coupled case first:
+Interactive:
 
-./allrun.sh
+  ./install.sh
 
-runMITtest: Test if the MITgcm flux is added correctly. (To install stand-alone MITgcm code, run ./install_mit.sh)
-runWRFtest: Test if the WRF flux is added correctly
-latexSummary: Generate the report automatically.
+Non-interactive/reproducible:
 
-####################
-WARNING!!!WARNING!!!
-####################
-This is a debug case. It will output almost everything at every time step.
-Please refer to other cases for production run.
+  ./install.sh --yes
+
+Optional build parallelism:
+
+  export MITGCM_BUILD_JOBS=8
+  export COUPLER_BUILD_JOBS=1
+
+Any failed prerequisite, compile, archive, or link step returns a non-zero exit
+status. A successful install produces:
+
+  build/mitgcmuv
+  build/mmout/mitgcm_org_ocn.mod
+  build/mmout/libmitgcm_org_ocn.a
+  build/mmout/libmitgcmrtl.a
+  coupledCode/esmf_application
+
+Run the shortest coupled case
+-----------------------------
+
+First generate the WRF initial and boundary files, then run the coupled model:
+
+  cd runCase.init
+  ./Allrun
+  cd ../runCase
+  ./Allrun
+
+Both scripts stop on missing inputs or command failures. They use four MPI ranks
+by default. Override the launcher or rank count when needed:
+
+  export MPIEXEC=mpirun
+  export SKRIPS_MPI_RANKS=4
+
+Both runners require WRF_DIR and ESMF_LIB. They validate the ESMF library
+directory and prepend it to LD_LIBRARY_PATH before launching WRF or the coupled
+application, so a fresh shell does not need a separately exported loader path.
+
+runCase/Allrun writes the coupled standard output and error stream to log.esmf
+and propagates the MPI exit code. The verified one-hour case reaches MITgcm
+checkpoint 60 and WRF model time 2012-06-01_01:00:00 before finalization.
+
+Debugging helpers
+-----------------
+
+runMITtest tests MITgcm flux handling. runWRFtest tests WRF flux handling.
+latexSummary generates the debug report. The case emits extensive diagnostics
+at every coupling interval, so storage use is much higher than a production
+run.

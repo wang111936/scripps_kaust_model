@@ -1,8 +1,48 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-ln -sf ../save_nc/* .
-ln -sf ../caseInput/* .
-cp $WRF_DIR/main/real.exe .
-cp $WRF_DIR/main/wrf.exe .
+set -Eeuo pipefail
 
-mpirun -np 4 ./real.exe
+run_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+cd "$run_dir"
+shopt -s nullglob
+
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+link_directory_contents() {
+  local source_dir=$1
+  local entries
+  [[ -d $source_dir ]] || die "required input directory does not exist: $source_dir"
+  entries=("$source_dir"/*)
+  ((${#entries[@]} > 0)) || die "required input directory is empty: $source_dir"
+  ln -sf -- "${entries[@]}" .
+}
+
+[[ -n ${WRF_DIR:-} ]] || die "required environment variable WRF_DIR is not set"
+[[ -n ${ESMF_LIB:-} ]] || die "required environment variable ESMF_LIB is not set"
+WRF_DIR=${WRF_DIR%/}
+[[ -x $WRF_DIR/main/real.exe ]] || die "WRF real.exe is missing or not executable: $WRF_DIR/main/real.exe"
+[[ -x $WRF_DIR/main/wrf.exe ]] || die "WRF wrf.exe is missing or not executable: $WRF_DIR/main/wrf.exe"
+[[ -d $ESMF_LIB ]] || die "ESMF library directory does not exist: $ESMF_LIB"
+
+mpi_exec=${MPIEXEC:-mpirun}
+mpi_ranks=${SKRIPS_MPI_RANKS:-4}
+command -v "$mpi_exec" >/dev/null 2>&1 || die "MPI launcher is not available: $mpi_exec"
+[[ $mpi_ranks =~ ^[1-9][0-9]*$ ]] || die "SKRIPS_MPI_RANKS must be a positive integer, got '$mpi_ranks'"
+
+link_directory_contents "$run_dir/../save_nc"
+link_directory_contents "$run_dir/../caseInput"
+cp -- "$WRF_DIR/main/real.exe" .
+cp -- "$WRF_DIR/main/wrf.exe" .
+
+export LD_LIBRARY_PATH="$ESMF_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+"$mpi_exec" -np "$mpi_ranks" ./real.exe
+
+for output_file in wrfbdy_d01 wrfinput_d01 wrflowinp_d01; do
+  [[ -s $output_file ]] || die "WRF initialization completed without producing $output_file"
+done
+
+printf 'WRF initialization succeeded with %s MPI ranks.\n' "$mpi_ranks"
