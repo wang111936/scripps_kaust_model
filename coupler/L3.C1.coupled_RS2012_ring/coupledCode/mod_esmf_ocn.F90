@@ -253,9 +253,23 @@ module mod_esmf_ocn
 
   call OCN_Get(gcomp, iLoop_ocn, rc)
 
+  if (esm_step_seconds <= 0 .or. ocn_step_seconds <= 0) then
+    call ESMF_LogSetError(rcToCheck=ESMF_RC_ARG_BAD,                  &
+      msg='EsmStepSeconds and OCNStepSeconds must both be positive.', &
+      line=__LINE__, file=FILENAME, rcToReturn=rc)
+    return
+  end if
+  if (mod(esm_step_seconds, ocn_step_seconds) /= 0) then
+    call ESMF_LogSetError(rcToCheck=ESMF_RC_ARG_BAD,                  &
+      msg='EsmStepSeconds must be exactly divisible by ' //          &
+          'OCNStepSeconds.',                                         &
+      line=__LINE__, file=FILENAME, rcToReturn=rc)
+    return
+  end if
+
+  nTimeStepsIn = esm_step_seconds / ocn_step_seconds
   if (currentTimeStep == 0) then
     call mit_getclock(myTime, myIter)
-    nTimeStepsIn = INT( esm_step_seconds/ocn_step_seconds )
   end if
 
   ! print *, "calling OCN_Run function"
@@ -1161,4 +1175,3 @@ module mod_esmf_ocn
   end subroutine OCN_Put
 !
   end module mod_esmf_ocn
-

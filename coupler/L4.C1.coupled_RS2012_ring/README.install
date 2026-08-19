@@ -66,3 +66,22 @@ Clone it with Git LFS enabled and verify that its LFS objects are materialized
 before attempting runCase.init and runCase. A successful compile alone does
 not assert that the external case data are complete or that a scientific
 validation has passed.
+
+Runtime configuration contract
+------------------------------
+
+The executable reads `namelist.rc` from its working directory and stops before
+component initialization when that file or any required setting is missing or
+invalid. Required settings are DebugLevel, interpolationOption, all six start
+and stop date/time fields, EsmStepSeconds, ATMStepSeconds, OCNStepSeconds,
+WAVStepSeconds, coupleMode, cpuOCN, cpuATM, cpuWAV, waveNPX, and waveNPY.
+
+Start and stop values must form valid Gregorian times, and stop must be later
+than start. DebugLevel must be nonnegative. Every time step and CPU count must
+be positive. EsmStepSeconds must be an exact positive multiple of
+OCNStepSeconds; this validated integer ratio is passed to MITgcm.
+
+Set coupleMode to 1 for sequential components or 2 for concurrent components.
+In mode 1, cpuOCN, cpuATM, and cpuWAV must each fit within the ESMF PET count.
+In mode 2, their sum must fit within the PET count. waveNPX and waveNPY must be
+positive and their product must equal cpuWAV.
