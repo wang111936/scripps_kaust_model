@@ -101,12 +101,19 @@
       call get_required_string(cf, 'interpolationOption:',             &
                                interp_option, localPet, rc)
       if (rc /= ESMF_SUCCESS) return
-      if (len_trim(interp_option) == 0) then
+      select case (trim(interp_option))
+      case ('nearest', 'bilinear', 'patch', 'conserve', 'conserve2nd')
+        continue
+      case default
+        error_message = "Unsupported interpolationOption '" //         &
+                        trim(interp_option) // "'. Supported values: " // &
+                        'nearest, bilinear, patch, conserve, ' //       &
+                        'conserve2nd.'
         call report_config_error(localPet,                              &
-          'interpolationOption must not be empty.',                    &
+          trim(error_message),                                         &
           ESMF_RC_ARG_BAD, rc)
         return
-      end if
+      end select
 !
       call get_required_integer(cf, 'StartYear:', start_year,          &
                                 localPet, rc)

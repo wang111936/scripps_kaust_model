@@ -98,6 +98,7 @@
       character(ESMF_MAXSTR)        :: fname
       integer                       :: extrapNumSrcPnts = 6
       real(ESMF_KIND_R4)            :: extrapDistExponent = 4.0
+      character(2*ESMF_MAXSTR)      :: error_message
 
 
       rc = ESMF_SUCCESS
@@ -151,8 +152,9 @@
           line=__LINE__, file=FILENAME)) return
 
       ! compute the first RouteHandle for srcFields->interDstFields (Regrid)
-      ! TODO::interpolation method is NEAREST POINT now (1st order)
-      if (interp_option .eq. 'nearest') then
+      ! using the validated interpolation method
+      select case (trim(interp_option))
+      case ('nearest')
         call ESMF_FieldBundleRegridStore(srcFields, interDstFields,       &
           unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
           regridMethod=ESMF_REGRIDMETHOD_NEAREST_STOD, &
@@ -160,7 +162,7 @@
           extrapNumSrcPnts=6, &
           extrapDistExponent=extrapDistExponent, &
           routehandle=rh1, rc=rc)
-      elseif (interp_option .eq. 'bilinear') then
+      case ('bilinear')
         call ESMF_FieldBundleRegridStore(srcFields, interDstFields,       &
           unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
           regridMethod=ESMF_REGRIDMETHOD_BILINEAR, &
@@ -168,22 +170,32 @@
           extrapNumSrcPnts=6, &
           extrapDistExponent=extrapDistExponent, &
           routehandle=rh1, rc=rc)
-      elseif (interp_option .eq. 'patch') then
+      case ('patch')
         call ESMF_FieldBundleRegridStore(srcFields, interDstFields,       &
           unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
           regridMethod=ESMF_REGRIDMETHOD_PATCH, &
           routehandle=rh1, rc=rc)
-      elseif (interp_option .eq. 'conserve') then
+      case ('conserve')
         call ESMF_FieldBundleRegridStore(srcFields, interDstFields,       &
           unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
           regridMethod=ESMF_REGRIDMETHOD_CONSERVE, &
           routehandle=rh1, rc=rc)
-      elseif (interp_option .eq. 'conserve2nd') then
+      case ('conserve2nd')
         call ESMF_FieldBundleRegridStore(srcFields, interDstFields,       &
           unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
           regridMethod=ESMF_REGRIDMETHOD_CONSERVE_2ND, &
           routehandle=rh1, rc=rc)
-      endif
+      case default
+        error_message = "Unsupported interpolationOption reached " //  &
+                        "CPL_ComputeRH: '" // trim(interp_option) //    &
+                        "'. Supported values: nearest, bilinear, " //   &
+                        "patch, conserve, conserve2nd."
+        call ESMF_LogSetError(rcToCheck=ESMF_RC_ARG_BAD,                &
+                              msg=trim(error_message),                  &
+                              line=__LINE__, file=FILENAME,             &
+                              rcToReturn=rc)
+        return
+      end select
 
       call ESMF_RouteHandleSet(rh1, name="src2interDstRH", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,    &
