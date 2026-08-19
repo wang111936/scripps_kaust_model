@@ -76,6 +76,10 @@ invalid. Required settings are DebugLevel, interpolationOption, all six start
 and stop date/time fields, EsmStepSeconds, ATMStepSeconds, OCNStepSeconds,
 WAVStepSeconds, coupleMode, cpuOCN, cpuATM, cpuWAV, waveNPX, and waveNPY.
 
+interpolationOption is case-sensitive and must be exactly one of `nearest`,
+`bilinear`, `patch`, `conserve`, or `conserve2nd`. An empty, mixed-case, or
+otherwise unsupported value is rejected before component initialization.
+
 Start and stop values must form valid Gregorian times, and stop must be later
 than start. DebugLevel must be nonnegative. Every time step and CPU count must
 be positive. EsmStepSeconds must be an exact positive multiple of
