@@ -94,3 +94,21 @@ runMITtest tests MITgcm flux handling. runWRFtest tests WRF flux handling.
 latexSummary generates the debug report. The case emits extensive diagnostics
 at every coupling interval, so storage use is much higher than a production
 run.
+
+Runtime configuration contract
+------------------------------
+
+The executable reads `namelist.rc` from its working directory and stops before
+component initialization when that file or any required setting is missing or
+invalid. Required integer settings are DebugLevel, all six start and stop
+date/time fields, EsmStepSeconds, ATMStepSeconds, OCNStepSeconds, coupleMode,
+cpuOCN, and cpuATM.
+
+Start and stop values must form valid Gregorian times, and stop must be later
+than start. DebugLevel must be nonnegative. All time steps and CPU counts must
+be positive. EsmStepSeconds must be an exact positive multiple of
+OCNStepSeconds; this validated integer ratio is passed to MITgcm.
+
+Set coupleMode to 1 for sequential components or 2 for concurrent components.
+In mode 1, cpuOCN and cpuATM must each fit within the ESMF PET count. In mode
+2, their sum must fit within the PET count.
