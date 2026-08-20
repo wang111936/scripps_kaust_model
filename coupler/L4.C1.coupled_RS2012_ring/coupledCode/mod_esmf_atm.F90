@@ -113,7 +113,6 @@
       ! Time hackery
       TYPE(ESMF_Time) :: startTime
       TYPE(ESMF_Time) :: stopTime
-      TYPE(ESMF_TimeInterval) :: couplingInterval
       ! decomposition hackery
       INTEGER :: ids, ide, jds, jde, kds, kde
       INTEGER :: ims, ime, jms, jme, kms, kme
@@ -151,11 +150,9 @@
       CALL wrf_init( no_init1=.TRUE. )
       
       PRINT *, 'wrf_component_init1: setting wrf time intervals'
-      call ESMF_TimeIntervalSet(couplingInterval, h=1, rc=rc)
-      
       PRINT *, 'wrf_component_init1: calling AttachDecompToState'
       CALL AttachTimesToState( exportState, esmStartTime, esmStopTime, &
-                               couplingInterval)
+                               atmTimeStep)
 
       PRINT *, 'wrf_component_init1: calling wrf_getDecompInfo'
       CALL wrf_getDecompInfo( ids, ide, jds, jde, kds, kde, &
