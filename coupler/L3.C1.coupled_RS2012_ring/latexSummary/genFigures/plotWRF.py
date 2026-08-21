@@ -437,6 +437,7 @@ def render_figure(
 
 
 def check_output_contract(
+    input_path: Path,
     output_dir: Path,
     fields: Sequence[str],
     steps: Sequence[int],
@@ -446,7 +447,21 @@ def check_output_contract(
     if output_dir.exists() and not output_dir.is_dir():
         raise PlotWRFError(f"output path is not a directory: {output_dir}")
     outputs = [output_dir / output_name(field, step) for step in steps for field in fields]
+    overlapping_input = next(
+        (output for output in outputs if paths_overlap(input_path, output)),
+        None,
+    )
+    if overlapping_input is not None:
+        raise PlotWRFError(
+            "planned PNG must not equal, contain, or be contained by the WRF "
+            f"input path: {overlapping_input} conflicts with {input_path}"
+        )
     if stats_json is not None:
+        if paths_overlap(input_path, stats_json):
+            raise PlotWRFError(
+                "--stats-json must not equal, contain, or be contained by the "
+                f"WRF input path: {stats_json} conflicts with {input_path}"
+            )
         if stats_json == output_dir:
             raise PlotWRFError(
                 "--stats-json must not be the same path as --output-dir: "
@@ -462,9 +477,18 @@ def check_output_contract(
                 f"planned PNG path: {stats_json} conflicts with "
                 f"{overlapping_output}"
             )
-    conflicts = [path for path in outputs if path.exists()]
-    if stats_json is not None and stats_json.exists():
-        conflicts.append(stats_json)
+    targets = outputs + ([stats_json] if stats_json is not None else [])
+    invalid_targets = [
+        path for path in targets if path.exists() and not path.is_file()
+    ]
+    if invalid_targets:
+        preview = ", ".join(str(path) for path in invalid_targets[:3])
+        suffix = " ..." if len(invalid_targets) > 3 else ""
+        raise PlotWRFError(
+            f"{len(invalid_targets)} existing output target(s) are not regular "
+            f"files: {preview}{suffix}"
+        )
+    conflicts = [path for path in targets if path.exists()]
     if conflicts and not overwrite:
         preview = ", ".join(str(path) for path in conflicts[:3])
         suffix = " ..." if len(conflicts) > 3 else ""
@@ -496,11 +520,8 @@ def atomic_write_json(path: Path, payload: dict[str, object]) -> None:
 def run(args: argparse.Namespace) -> int:
     if not args.input.is_file():
         raise PlotWRFError(f"WRF input does not exist: {args.input}")
-    if args.stats_json is not None and args.stats_json == args.input:
-        raise PlotWRFError("--stats-json must not replace the WRF input file")
-    if args.stats_json is not None and args.stats_json.is_dir():
-        raise PlotWRFError("--stats-json must name a file, not a directory")
     outputs = check_output_contract(
+        args.input,
         args.output_dir,
         args.fields,
         args.steps,
